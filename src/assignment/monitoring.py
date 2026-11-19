@@ -41,17 +41,59 @@ class MonitoringAlert:
     judge_checks: int = 0
     judge_fails: int = 0
 
+
     def check_metrics(self) -> list[Alert]:
-        """TODO: compute rates, append Alert objects when thresholds exceeded."""
-        raise NotImplementedError("Implement MonitoringAlert.check_metrics")
+        """Compute rates and generate alerts when thresholds are exceeded."""
+        self.alerts.clear()
+
+        metrics = self.snapshot()
+
+        if metrics["block_rate"] > self.block_rate_threshold:
+            self.alerts.append(
+                Alert(
+                    metric="block_rate",
+                    value=metrics["block_rate"],
+                    threshold=self.block_rate_threshold,
+                    message="Block rate exceeded the configured threshold.",
+                )
+            )
+
+        if self.rate_limit_hits > self.rate_limit_hit_threshold:
+            self.alerts.append(
+                Alert(
+                    metric="rate_limit_hits",
+                    value=float(self.rate_limit_hits),
+                    threshold=float(self.rate_limit_hit_threshold),
+                    message="Rate limit hits exceeded the configured threshold.",
+                )
+            )
+
+        if metrics["judge_fail_rate"] > self.judge_fail_rate_threshold:
+            self.alerts.append(
+                Alert(
+                    metric="judge_fail_rate",
+                    value=metrics["judge_fail_rate"],
+                    threshold=self.judge_fail_rate_threshold,
+                    message="Judge failure rate exceeded the configured threshold.",
+                )
+            )
+
+        return self.alerts
+
+
 
     def export_json(self, filepath: str | None = None):
-        """TODO: write metrics + alerts to JSON under repo-root ``outputs/`` by default.
-        Use ``filepath or default_metrics_path()`` so running from ``src/`` does not
-        create ``src/outputs/``.
-        """
-        _ = filepath or default_metrics_path()
-        raise NotImplementedError("Implement MonitoringAlert.export_json")
+        """Export metrics and alerts to JSON."""
+        path = Path(filepath or default_metrics_path())
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        self.check_metrics()
+
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(self.snapshot(), f, ensure_ascii=False, indent=2)
+
+        return str(path)
+
 
     def snapshot(self) -> dict:
         block_rate = (
